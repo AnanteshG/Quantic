@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-quantico);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: 
+    /* Main diagonal gradient with smooth transitions */ linear-gradient(
+    135deg,
+    #4a5e42 0%,
+    /* Dark green at top-left */ #7a8f72 20%,
+    /* Medium green */ #b8c7b1 35%,
+    /* Light green approaching white */ #e8f0e5 45%,
+    /* Very light green-white */ #ffffff 50%,
+    /* Pure white center */ #e8f0e5 55%,
+    /* Very light green-white */ #b8c7b1 65%,
+    /* Light green leaving white */ #7a8f72 80%,
+    /* Medium green */ #4a5e42 100% /* Dark green at bottom-right */
+  );
+  color: var(--foreground);
+  font-family: var(--font-quantico), -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+  margin: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
