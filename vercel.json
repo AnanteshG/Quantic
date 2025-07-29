@@ -1,25 +1,5 @@
 {
-  "version": 2,
   "name": "quanticdaily",
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
-    }
-  ],
-  "env": {
-    "NEXT_PUBLIC_APP_URL": "@next_public_app_url"
-  },
   "functions": {
     "app/api/**/*.ts": {
       "maxDuration": 30
@@ -33,5 +13,8 @@
       "source": "/(.*)",
       "destination": "/"
     }
-  ]
+  ],
+  "env": {
+    "NEXT_PUBLIC_APP_URL": "@next_public_app_url"
+  }
 }
