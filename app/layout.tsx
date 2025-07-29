@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Quantico } from "next/font/google";
 import "./globals.css";
+import { ToastProvider } from "./components/toast";
 
 const quantico = Quantico({
   variable: "--font-quantico",
@@ -9,7 +10,7 @@ const quantico = Quantico({
 });
 
 export const metadata: Metadata = {
-  title: "Quantic - AI newsletter for busy professionals",
+  title: "QuanticDaily - AI newsletter for busy professionals",
   description: "Stay ahead with AI news in your inbox. Curated AI & software news, expert summaries, and actionable insights.",
 };
 
@@ -23,7 +24,9 @@ export default function RootLayout({
       <body
         className={`${quantico.variable} antialiased`}
       >
-        {children}
+        <ToastProvider>
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );
