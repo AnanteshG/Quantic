@@ -299,19 +299,96 @@ function makeGeminiRequest(prompt) {
 async function getSubscribers() {
   log("Fetching subscribers from Firestore...");
 
-  // For GitHub Actions, we'll use a simple REST API call
-  // In production, this would use Firebase Admin SDK
-
   if (CONFIG.TEST_MODE) {
     log("Running in test mode - using test email");
     return [{ email: CONFIG.SENDER_EMAIL, subscribed: true }];
   }
 
-  // Mock subscribers for now - in production, implement Firestore REST API call
-  const mockSubscribers = [{ email: CONFIG.SENDER_EMAIL, subscribed: true }];
+  try {
+    // Use Firestore REST API to get subscribers
+    const projectId = CONFIG.FIREBASE.projectId;
+    const apiKey = CONFIG.FIREBASE.apiKey;
+    
+    if (!projectId || !apiKey) {
+      log("Firebase configuration missing, using fallback subscriber", "WARN");
+      return [{ email: CONFIG.SENDER_EMAIL, subscribed: true }];
+    }
 
-  log(`Found ${mockSubscribers.length} active subscribers`);
-  return mockSubscribers;
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/quantic-emails?key=${apiKey}`;
+    
+    log(`Fetching from Firestore: ${projectId}/quantic-emails`);
+    
+    const response = await makeHttpRequest(url);
+    const data = JSON.parse(response);
+    
+    if (!data.documents) {
+      log("No subscribers found in Firestore", "WARN");
+      return [{ email: CONFIG.SENDER_EMAIL, subscribed: true }];
+    }
+
+    const subscribers = data.documents
+      .map(doc => {
+        const fields = doc.fields;
+        return {
+          email: fields.email?.stringValue,
+          subscribed: fields.subscribed?.booleanValue !== false,
+          subscribedAt: fields.subscribedAt?.timestampValue
+        };
+      })
+      .filter(subscriber => subscriber.email && subscriber.subscribed);
+
+    log(`Found ${subscribers.length} active subscribers`);
+    
+    // If no subscribers found, use fallback
+    if (subscribers.length === 0) {
+      log("No active subscribers found, using fallback email", "WARN");
+      return [{ email: CONFIG.SENDER_EMAIL, subscribed: true }];
+    }
+    
+    return subscribers;
+    
+  } catch (error) {
+    log(`Error fetching subscribers: ${error.message}`, "ERROR");
+    log("Using fallback subscriber", "INFO");
+    return [{ email: CONFIG.SENDER_EMAIL, subscribed: true }];
+  }
+}
+
+// Helper function to make HTTP requests
+function makeHttpRequest(url) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const options = {
+      hostname: urlObj.hostname,
+      path: urlObj.pathname + urlObj.search,
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve(data);
+        } else {
+          reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      reject(error);
+    });
+
+    req.end();
+  });
 }
 
 // Send email using SMTP
