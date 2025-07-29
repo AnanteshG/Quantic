@@ -66,7 +66,7 @@ jobs:
           # Application Configuration
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
           UNSUBSCRIBE_SECRET: ${{ secrets.UNSUBSCRIBE_SECRET }}
-          TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
+          TEST_MODE: false
 
       - name: Upload newsletter logs
         uses: actions/upload-artifact@v4
