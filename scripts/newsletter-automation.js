@@ -38,6 +38,23 @@ const CONFIG = {
 
 // Validate configuration
 function validateConfig() {
+  // Debug: Log all environment variables (without sensitive values)
+  log("Environment variables check:");
+  log(`GEMINI_API_KEY: ${process.env.GEMINI_API_KEY ? "SET" : "NOT SET"}`);
+  log(`SENDER_EMAIL: ${process.env.SENDER_EMAIL ? "SET" : "NOT SET"}`);
+  log(`SENDER_PASSWORD: ${process.env.SENDER_PASSWORD ? "SET" : "NOT SET"}`);
+  log(
+    `UNSUBSCRIBE_SECRET: ${process.env.UNSUBSCRIBE_SECRET ? "SET" : "NOT SET"}`
+  );
+  log(
+    `NEXT_PUBLIC_APP_URL: ${
+      process.env.NEXT_PUBLIC_APP_URL ? "SET" : "NOT SET"
+    }`
+  );
+  log(`SMTP_SERVER: ${process.env.SMTP_SERVER || "smtp.gmail.com"}`);
+  log(`SMTP_PORT: ${process.env.SMTP_PORT || "587"}`);
+  log(`TEST_MODE: ${process.env.TEST_MODE || "false"}`);
+
   const required = [
     "GEMINI_API_KEY",
     "SENDER_EMAIL",
@@ -48,6 +65,12 @@ function validateConfig() {
   const missing = required.filter((key) => !CONFIG[key]);
 
   if (missing.length > 0) {
+    log(
+      `Missing CONFIG values: ${missing
+        .map((key) => `${key}=${CONFIG[key]}`)
+        .join(", ")}`,
+      "ERROR"
+    );
     throw new Error(
       `Missing required environment variables: ${missing.join(", ")}`
     );
