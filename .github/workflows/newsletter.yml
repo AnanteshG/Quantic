@@ -32,6 +32,15 @@ jobs:
       - name: Install Node.js dependencies
         run: npm ci
 
+      - name: Debug secrets availability
+        run: |
+          echo "Checking which secrets are available:"
+          echo "GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY != '' }}"
+          echo "SENDER_EMAIL: ${{ secrets.SENDER_EMAIL != '' }}"
+          echo "SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD != '' }}"
+          echo "UNSUBSCRIBE_SECRET: ${{ secrets.UNSUBSCRIBE_SECRET != '' }}"
+          echo "NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL != '' }}"
+
       - name: Generate and send newsletter
         run: |
           node scripts/newsletter-automation.js
