@@ -328,7 +328,7 @@ async function getSubscribers() {
 
     if (!projectId || !apiKey) {
       log("Firebase configuration missing, using fallback subscriber", "WARN");
-      return [{ email: CONFIG.SENDER_EMAIL, subscribed: true }];
+      return [{ email: CONFIG.SENDER_EMAIL, active: true }];
     }
 
     const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/quantic-emails?key=${apiKey}`;
@@ -349,7 +349,7 @@ async function getSubscribers() {
 
     if (!data.documents) {
       log("No documents found in Firestore collection", "WARN");
-      return [{ email: CONFIG.SENDER_EMAIL, subscribed: true }];
+      return [{ email: CONFIG.SENDER_EMAIL, active: true }];
     }
 
     const subscribers = data.documents
@@ -381,7 +381,7 @@ async function getSubscribers() {
     // If no subscribers found, use fallback
     if (subscribers.length === 0) {
       log("No active subscribers found, using fallback email", "WARN");
-      return [{ email: CONFIG.SENDER_EMAIL, subscribed: true }];
+      return [{ email: CONFIG.SENDER_EMAIL, active: true }];
     }
 
     return subscribers;
@@ -389,7 +389,7 @@ async function getSubscribers() {
     log(`Error fetching subscribers: ${error.message}`, "ERROR");
     log(`Error details: ${error.stack}`, "ERROR");
     log("Using fallback subscriber", "INFO");
-    return [{ email: CONFIG.SENDER_EMAIL, subscribed: true }];
+    return [{ email: CONFIG.SENDER_EMAIL, active: true }];
   }
 }
 
@@ -479,7 +479,7 @@ async function main() {
     log("Newsletter content generation completed");
 
     const subscribers = await getSubscribers();
-    log("Subscribers fetched successfully");
+    log(`Found ${subscribers.length} active subscribers`);
 
     await sendNewsletter(subscribers, newsletterContent);
 
@@ -500,7 +500,7 @@ async function main() {
         <p>Thank you for your patience!</p>
       `;
       const fallbackSubscribers = [
-        { email: CONFIG.SENDER_EMAIL, subscribed: true },
+        { email: CONFIG.SENDER_EMAIL, active: true },
       ];
       await sendNewsletter(fallbackSubscribers, errorContent);
       log("Error notification sent successfully");
