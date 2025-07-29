@@ -40,7 +40,7 @@ const CONFIG = {
 function validateConfig() {
   const required = [
     "GEMINI_API_KEY",
-    "SENDER_EMAIL", 
+    "SENDER_EMAIL",
     "SENDER_PASSWORD",
     "UNSUBSCRIBE_SECRET",
     "APP_URL",
