@@ -148,15 +148,29 @@ Please create:
 Keep it professional, engaging, and under 800 words. Format in HTML for email.`;
 
   try {
+    log("Attempting Gemini API call...");
     const response = await makeGeminiRequest(prompt);
     log("Newsletter content generated successfully");
     return response;
   } catch (error) {
     log(`Error generating content: ${error.message}`, "ERROR");
+    log(`Error stack: ${error.stack}`, "ERROR");
     log("Falling back to basic newsletter template...", "INFO");
 
     // Fallback to basic newsletter if Gemini fails
-    return generateFallbackNewsletter(newsArticles);
+    try {
+      const fallbackContent = generateFallbackNewsletter(newsArticles);
+      log("Fallback newsletter generated successfully");
+      return fallbackContent;
+    } catch (fallbackError) {
+      log(`Fallback generation failed: ${fallbackError.message}`, "ERROR");
+      // Return a minimal newsletter if even fallback fails
+      return `
+        <h1>QuanticDaily AI Newsletter</h1>
+        <p>We're experiencing technical difficulties generating today's newsletter. Please check back later.</p>
+        <p>Thank you for your patience!</p>
+      `;
+    }
   }
 }
 
@@ -451,8 +465,13 @@ async function main() {
     validateConfig();
 
     const newsArticles = await fetchAINews();
+    log("News articles fetched successfully");
+
     const newsletterContent = await generateNewsletterContent(newsArticles);
+    log("Newsletter content generation completed");
+
     const subscribers = await getSubscribers();
+    log("Subscribers fetched successfully");
 
     await sendNewsletter(subscribers, newsletterContent);
 
@@ -460,6 +479,30 @@ async function main() {
     process.exit(0);
   } catch (error) {
     log(`Newsletter automation failed: ${error.message}`, "ERROR");
+    log(`Error stack: ${error.stack}`, "ERROR");
+
+    // Try to send a basic error newsletter to at least notify about the issue
+    try {
+      log("Attempting to send error notification newsletter...", "INFO");
+      const errorContent = `
+        <h1>QuanticDaily - System Notification</h1>
+        <p>We encountered an issue generating today's newsletter.</p>
+        <p>Error: ${error.message}</p>
+        <p>Our team has been notified and we'll resolve this soon.</p>
+        <p>Thank you for your patience!</p>
+      `;
+      const fallbackSubscribers = [
+        { email: CONFIG.SENDER_EMAIL, subscribed: true },
+      ];
+      await sendNewsletter(fallbackSubscribers, errorContent);
+      log("Error notification sent successfully");
+    } catch (notificationError) {
+      log(
+        `Failed to send error notification: ${notificationError.message}`,
+        "ERROR"
+      );
+    }
+
     process.exit(1);
   }
 }
