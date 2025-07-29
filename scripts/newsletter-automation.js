@@ -298,6 +298,9 @@ function makeGeminiRequest(prompt) {
 // Get subscribers from Firestore
 async function getSubscribers() {
   log("Fetching subscribers from Firestore...");
+  log(`TEST_MODE is: ${CONFIG.TEST_MODE}`);
+  log(`Firebase Project ID: ${CONFIG.FIREBASE.projectId ? "SET" : "NOT SET"}`);
+  log(`Firebase API Key: ${CONFIG.FIREBASE.apiKey ? "SET" : "NOT SET"}`);
 
   if (CONFIG.TEST_MODE) {
     log("Running in test mode - using test email");
@@ -308,47 +311,61 @@ async function getSubscribers() {
     // Use Firestore REST API to get subscribers
     const projectId = CONFIG.FIREBASE.projectId;
     const apiKey = CONFIG.FIREBASE.apiKey;
-    
+
     if (!projectId || !apiKey) {
       log("Firebase configuration missing, using fallback subscriber", "WARN");
       return [{ email: CONFIG.SENDER_EMAIL, subscribed: true }];
     }
 
     const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/quantic-emails?key=${apiKey}`;
-    
-    log(`Fetching from Firestore: ${projectId}/quantic-emails`);
-    
+
+    log(
+      `Fetching from Firestore URL: ${url.replace(apiKey, "API_KEY_HIDDEN")}`
+    );
+
     const response = await makeHttpRequest(url);
+    log(`Firestore response received, length: ${response.length}`);
+
     const data = JSON.parse(response);
-    
+    log(
+      `Parsed data, documents count: ${
+        data.documents ? data.documents.length : 0
+      }`
+    );
+
     if (!data.documents) {
-      log("No subscribers found in Firestore", "WARN");
+      log("No documents found in Firestore collection", "WARN");
       return [{ email: CONFIG.SENDER_EMAIL, subscribed: true }];
     }
 
     const subscribers = data.documents
-      .map(doc => {
+      .map((doc) => {
         const fields = doc.fields;
-        return {
+        const subscriber = {
           email: fields.email?.stringValue,
           subscribed: fields.subscribed?.booleanValue !== false,
-          subscribedAt: fields.subscribedAt?.timestampValue
+          subscribedAt: fields.subscribedAt?.timestampValue,
         };
+        log(
+          `Processing subscriber: ${subscriber.email}, subscribed: ${subscriber.subscribed}`
+        );
+        return subscriber;
       })
-      .filter(subscriber => subscriber.email && subscriber.subscribed);
+      .filter((subscriber) => subscriber.email && subscriber.subscribed);
 
-    log(`Found ${subscribers.length} active subscribers`);
-    
+    log(`Total documents processed: ${data.documents.length}`);
+    log(`Active subscribers after filtering: ${subscribers.length}`);
+
     // If no subscribers found, use fallback
     if (subscribers.length === 0) {
       log("No active subscribers found, using fallback email", "WARN");
       return [{ email: CONFIG.SENDER_EMAIL, subscribed: true }];
     }
-    
+
     return subscribers;
-    
   } catch (error) {
     log(`Error fetching subscribers: ${error.message}`, "ERROR");
+    log(`Error details: ${error.stack}`, "ERROR");
     log("Using fallback subscriber", "INFO");
     return [{ email: CONFIG.SENDER_EMAIL, subscribed: true }];
   }
@@ -361,20 +378,20 @@ function makeHttpRequest(url) {
     const options = {
       hostname: urlObj.hostname,
       path: urlObj.pathname + urlObj.search,
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Accept': 'application/json'
-      }
+        Accept: "application/json",
+      },
     };
 
     const req = https.request(options, (res) => {
-      let data = '';
-      
-      res.on('data', (chunk) => {
+      let data = "";
+
+      res.on("data", (chunk) => {
         data += chunk;
       });
-      
-      res.on('end', () => {
+
+      res.on("end", () => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve(data);
         } else {
@@ -383,7 +400,7 @@ function makeHttpRequest(url) {
       });
     });
 
-    req.on('error', (error) => {
+    req.on("error", (error) => {
       reject(error);
     });
 
