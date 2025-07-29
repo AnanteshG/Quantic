@@ -5,8 +5,13 @@
  * Fetches AI news, generates newsletter content, and sends emails
  */
 
+require("dotenv").config({
+  path: require("path").resolve(process.cwd(), ".env"),
+});
+
 const https = require("https");
 const { createHash } = require("crypto");
+const nodemailer = require("nodemailer");
 
 // Simple logging utility
 const log = (message, level = "INFO") => {
@@ -454,8 +459,12 @@ async function sendNewsletter(subscribers, content) {
         </p>
       `;
 
-      // For GitHub Actions, we'll use a simple email service or API
-      // In this example, we'll just log the action
+      // Send actual email using SMTP
+      await sendSMTPEmail(
+        subscriber.email,
+        "QuanticDaily - AI Weekly Digest",
+        emailContent
+      );
       log(`Newsletter sent to ${subscriber.email}`);
     } catch (error) {
       log(`Failed to send to ${subscriber.email}: ${error.message}`, "ERROR");
@@ -463,6 +472,34 @@ async function sendNewsletter(subscribers, content) {
   }
 
   log("Newsletter distribution completed");
+}
+
+// Send email via SMTP using Nodemailer
+async function sendSMTPEmail(to, subject, htmlContent) {
+  const transporter = nodemailer.createTransport({
+    host: CONFIG.SMTP_SERVER,
+    port: CONFIG.SMTP_PORT,
+    secure: CONFIG.SMTP_PORT === "465", // true for 465, false for other ports
+    auth: {
+      user: CONFIG.SENDER_EMAIL,
+      pass: CONFIG.SENDER_PASSWORD,
+    },
+  });
+
+  const mailOptions = {
+    from: `"QuanticDaily" <${CONFIG.SENDER_EMAIL}>`,
+    to: to,
+    subject: subject,
+    html: htmlContent,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    log(`Email sent: ${info.response}`);
+  } catch (error) {
+    log(`Error sending email: ${error}`, "ERROR");
+    throw error; // Re-throw to be caught by the calling function
+  }
 }
 
 // Main execution function
