@@ -43,8 +43,9 @@ export async function addSubscriber(email: string, source: string = 'website'): 
         };
       } else {
         // Reactivate existing subscriber
-        const updatedSubscriber: Partial<Subscriber> = {
+        const updatedSubscriber: any = {
           active: true,
+          subscribed: true, // Add for newsletter automation compatibility
           subscribedAt: Timestamp.now(),
           unsubscribeToken: generateUnsubscribeToken(email)
         };
@@ -60,10 +61,11 @@ export async function addSubscriber(email: string, source: string = 'website'): 
     }
     
     // Add new subscriber
-    const newSubscriber: Subscriber = {
+    const newSubscriber: any = {
       email,
       subscribedAt: Timestamp.now(),
       active: true,
+      subscribed: true, // Add for newsletter automation compatibility
       unsubscribeToken: generateUnsubscribeToken(email),
       source
     };

@@ -357,7 +357,10 @@ async function getSubscribers() {
         const fields = doc.fields;
         const subscriber = {
           email: fields.email?.stringValue,
-          subscribed: fields.subscribed?.booleanValue !== false,
+          // Check both 'subscribed' and 'active' fields for compatibility
+          subscribed:
+            fields.subscribed?.booleanValue !== false ||
+            fields.active?.booleanValue !== false,
           subscribedAt: fields.subscribedAt?.timestampValue,
         };
         log(
