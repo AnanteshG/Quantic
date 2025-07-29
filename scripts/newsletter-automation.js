@@ -355,20 +355,25 @@ async function getSubscribers() {
     const subscribers = data.documents
       .map((doc) => {
         const fields = doc.fields;
+        const email = fields.email?.stringValue;
+        const subscribedAt = fields.subscribedAt?.timestampValue;
+
+        // Check active field if it exists, otherwise assume active if email and subscribedAt exist
+        const isActive =
+          fields.active?.booleanValue !== false && email && subscribedAt;
+
         const subscriber = {
-          email: fields.email?.stringValue,
-          // Check both 'subscribed' and 'active' fields for compatibility
-          subscribed:
-            fields.subscribed?.booleanValue !== false ||
-            fields.active?.booleanValue !== false,
-          subscribedAt: fields.subscribedAt?.timestampValue,
+          email: email,
+          active: isActive,
+          subscribedAt: subscribedAt,
         };
+
         log(
-          `Processing subscriber: ${subscriber.email}, subscribed: ${subscriber.subscribed}`
+          `Processing subscriber: ${subscriber.email}, active: ${subscriber.active}`
         );
         return subscriber;
       })
-      .filter((subscriber) => subscriber.email && subscriber.subscribed);
+      .filter((subscriber) => subscriber.email && subscriber.active);
 
     log(`Total documents processed: ${data.documents.length}`);
     log(`Active subscribers after filtering: ${subscribers.length}`);
