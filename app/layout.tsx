@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Quantico } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "./components/toast";
+import { Analytics } from '@vercel/analytics/react';
 
 const quantico = Quantico({
   variable: "--font-quantico",
@@ -27,6 +28,7 @@ export default function RootLayout({
         <ToastProvider>
           {children}
         </ToastProvider>
+        <Analytics />
       </body>
     </html>
   );
