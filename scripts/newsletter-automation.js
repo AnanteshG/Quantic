@@ -153,8 +153,57 @@ Keep it professional, engaging, and under 800 words. Format in HTML for email.`;
     return response;
   } catch (error) {
     log(`Error generating content: ${error.message}`, "ERROR");
-    throw error;
+    log("Falling back to basic newsletter template...", "INFO");
+
+    // Fallback to basic newsletter if Gemini fails
+    return generateFallbackNewsletter(newsArticles);
   }
+}
+
+// Fallback newsletter generator
+function generateFallbackNewsletter(newsArticles) {
+  log("Generating fallback newsletter content...");
+
+  const currentDate = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const htmlContent = `
+    <h1>QuanticDaily AI Newsletter - ${currentDate}</h1>
+    
+    <p>Stay ahead with the latest AI developments. Here are today's top AI stories:</p>
+    
+    ${newsArticles
+      .map(
+        (article, index) => `
+      <div style="margin-bottom: 30px; border-bottom: 1px solid #eee; padding-bottom: 20px;">
+        <h2 style="color: #2563eb; font-size: 18px;">${index + 1}. ${
+          article.title
+        }</h2>
+        <p style="color: #666; font-size: 14px; margin: 5px 0;">Source: ${
+          article.source
+        }</p>
+        <p style="line-height: 1.6;">${article.summary}</p>
+        <a href="${
+          article.url
+        }" style="color: #2563eb; text-decoration: none;">Read more →</a>
+      </div>
+    `
+      )
+      .join("")}
+    
+    <hr style="margin: 30px 0;">
+    
+    <p style="color: #666; text-align: center;">
+      <strong>QuanticDaily</strong> - Your AI Newsletter<br>
+      Curated AI news for busy professionals
+    </p>
+  `;
+
+  return htmlContent;
 }
 
 // Make request to Gemini AI
@@ -190,17 +239,46 @@ function makeGeminiRequest(prompt) {
       });
 
       res.on("end", () => {
+        log(`Gemini API Response Status: ${res.statusCode}`);
+        log(`Gemini API Response: ${responseData.substring(0, 500)}...`);
+
         try {
           const parsed = JSON.parse(responseData);
+
+          // Check for API errors
+          if (parsed.error) {
+            reject(
+              new Error(
+                `Gemini API Error: ${
+                  parsed.error.message || "Unknown API error"
+                }`
+              )
+            );
+            return;
+          }
+
           if (
             parsed.candidates &&
             parsed.candidates[0]?.content?.parts?.[0]?.text
           ) {
             resolve(parsed.candidates[0].content.parts[0].text);
           } else {
-            reject(new Error("Invalid response from Gemini AI"));
+            log(
+              `Unexpected response structure: ${JSON.stringify(
+                parsed,
+                null,
+                2
+              )}`,
+              "ERROR"
+            );
+            reject(
+              new Error(
+                "Invalid response from Gemini AI - unexpected structure"
+              )
+            );
           }
         } catch (error) {
+          log(`Raw response: ${responseData}`, "ERROR");
           reject(
             new Error(`Failed to parse Gemini response: ${error.message}`)
           );
