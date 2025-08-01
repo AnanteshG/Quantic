@@ -32,6 +32,16 @@ jobs:
       - name: Install Node.js dependencies
         run: npm ci
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
       - name: Debug secrets availability
         run: |
           echo "Checking which secrets are available:"
@@ -41,9 +51,13 @@ jobs:
           echo "UNSUBSCRIBE_SECRET: ${{ secrets.UNSUBSCRIBE_SECRET != '' }}"
           echo "NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL != '' }}"
 
+      - name: Test news scraper
+        run: |
+          python scripts/news_scraper.py --quiet
+
       - name: Generate and send newsletter
         run: |
-          node scripts/newsletter-automation.js
+          node scripts/production-newsletter.js
         env:
           # Gemini AI Configuration
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -67,6 +81,10 @@ jobs:
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
           UNSUBSCRIBE_SECRET: ${{ secrets.UNSUBSCRIBE_SECRET }}
           TEST_MODE: false
+          
+          # Default SMTP settings if not provided
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER || 'smtp.gmail.com' }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT || '587' }}
 
       - name: Upload newsletter logs
         uses: actions/upload-artifact@v4

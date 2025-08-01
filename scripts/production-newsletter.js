@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Newsletter Automation Script for GitHub Actions
- * Fetches AI news, generates newsletter content, and sends emails using a template.
+ * Production Newsletter Automation Script
+ * Sends newsletters to all active subscribers in Firestore
  */
 
 const https = require("https");
@@ -72,14 +72,15 @@ async function getSubscribers() {
       .map((sub) => ({ email: sub.email.stringValue }));
 
     if (subscribers.length === 0) {
-      log("No active subscribers found, using fallback email.", "WARN");
-      return [{ email: CONFIG.SENDER_EMAIL }];
+      log("No active subscribers found.", "WARN");
+      return [];
     }
+
+    log(`Found ${subscribers.length} active subscribers.`);
     return subscribers;
   } catch (error) {
     log(`Failed to fetch subscribers: ${error.message}`, "ERROR");
-    log("Using fallback subscriber.", "INFO");
-    return [{ email: CONFIG.SENDER_EMAIL }];
+    return [];
   }
 }
 
@@ -90,7 +91,12 @@ async function generateNewsletterContent(newsArticles) {
   const prompt = `Based on these articles, create content for the QuanticDaily AI newsletter:
 
 ${newsArticles
-  .map((article, i) => `${i + 1}. ${article.title}: ${article.summary}`)
+  .map(
+    (article, i) =>
+      `${i + 1}. ${article.title}: ${
+        article.summary || article.excerpt || "No summary available"
+      }`
+  )
   .join("\n")}
 
 Provide a JSON object with the following keys:
@@ -122,8 +128,10 @@ Do not include the articles themselves in the response. The output must be only 
 function generateFallbackNewsletter(newsArticles) {
   return {
     subject: "QuanticDaily - AI Weekly Digest",
-    introduction: "Here are the top AI stories of the week:",
-    conclusion: "Stay informed on the latest in AI!",
+    introduction:
+      "Welcome to QuanticDaily! Here are the top AI stories of the week, curated just for you.",
+    conclusion:
+      "Stay informed on the latest in AI technology and innovation. We'll see you next week!",
     articles: newsArticles,
   };
 }
@@ -137,6 +145,8 @@ async function sendNewsletter(subscribers, content) {
 
   try {
     const htmlTemplate = fs.readFileSync(templatePath, "utf-8");
+    let successCount = 0;
+    let failureCount = 0;
 
     for (const subscriber of subscribers) {
       try {
@@ -172,15 +182,27 @@ async function sendNewsletter(subscribers, content) {
           .replace("{{APP_URL}}", CONFIG.APP_URL);
 
         await sendSMTPEmail(subscriber.email, subject, emailHtml);
-        log(`Newsletter sent to ${subscriber.email}`);
+        log(`✅ Newsletter sent to ${subscriber.email}`);
+        successCount++;
+
+        // Add a small delay to avoid overwhelming the SMTP server
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       } catch (error) {
-        log(`Failed to send to ${subscriber.email}: ${error.message}`, "ERROR");
+        log(
+          `❌ Failed to send to ${subscriber.email}: ${error.message}`,
+          "ERROR"
+        );
+        failureCount++;
       }
     }
-    log("Newsletter distribution completed.");
+
+    log(
+      `📊 Newsletter distribution completed. Success: ${successCount}, Failures: ${failureCount}`
+    );
+    return { successCount, failureCount };
   } catch (error) {
     log(`Failed to read email template: ${error.message}`, "ERROR");
-    throw error; // Propagate error to main handler
+    throw error;
   }
 }
 
@@ -225,20 +247,38 @@ async function sendSMTPEmail(to, subject, htmlContent) {
 async function main() {
   let exitCode = 0;
   try {
-    log("Starting newsletter automation...");
+    log("🚀 Starting production newsletter automation...");
     validateConfig();
 
+    log("📰 Fetching AI news...");
     const newsArticles = await fetchAINews();
-    const newsletterContent = await generateNewsletterContent(newsArticles);
+
+    if (!newsArticles || newsArticles.length === 0) {
+      throw new Error("No news articles were fetched. Cannot send newsletter.");
+    }
+
+    log("👥 Fetching subscribers...");
     const subscribers = await getSubscribers();
 
-    await sendNewsletter(subscribers, newsletterContent);
+    if (subscribers.length === 0) {
+      log("⚠️ No active subscribers found. Newsletter not sent.", "WARN");
+      return;
+    }
 
-    log("Newsletter automation completed successfully.");
+    log("✍️ Generating newsletter content...");
+    const newsletterContent = await generateNewsletterContent(newsArticles);
+
+    log("📧 Sending newsletter to all subscribers...");
+    const result = await sendNewsletter(subscribers, newsletterContent);
+
+    log("✅ Production newsletter automation completed successfully!");
+    log(
+      `📊 Results: ${result.successCount} successful, ${result.failureCount} failed`
+    );
   } catch (error) {
     log(
       `
---- SCRIPT FAILED ---
+--- PRODUCTION SCRIPT FAILED ---
 `,
       "ERROR"
     );
@@ -248,7 +288,7 @@ async function main() {
     exitCode = 1;
   } finally {
     log(`
---- SCRIPT FINISHED ---`);
+--- PRODUCTION SCRIPT FINISHED ---`);
     log(`Exiting with code ${exitCode}.`);
     process.exit(exitCode);
   }
@@ -272,7 +312,7 @@ async function sendErrorNotification(error) {
   }
 }
 
-// --- Helpers & Entrypoint ---
+// --- Helpers ---
 
 function makeHttpRequest(url) {
   return new Promise((resolve, reject) => {
