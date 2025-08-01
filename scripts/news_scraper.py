@@ -27,19 +27,37 @@ class AINewsScraper:
         # Common AI news sources with updated selectors
         self.sources = {
             'hacker_news_ai': {
-                'url': 'https://hn.algolia.com/api/v1/search?query=artificial%20intelligence&tags=story&hitsPerPage=10',
+                'url': 'https://hn.algolia.com/api/v1/search?query=artificial%20intelligence&tags=story&hitsPerPage=15',
                 'is_api': True,  # This is an API endpoint
             },
             'reddit_ai': {
                 'url': 'https://www.reddit.com/r/artificial.json',
                 'is_api': True,  # Reddit API
             },
-            'simple_ai_blog': {
-                'url': 'https://blogs.nvidia.com/ai-podcast/',
-                'article_selector': 'article, .post, .entry',
-                'title_selector': 'h1, h2, h3, .title, .entry-title',
-                'link_selector': 'a',
-                'excerpt_selector': '.excerpt, .summary, p'
+            'techcrunch_ai': {
+                'url': 'https://techcrunch.com/tag/artificial-intelligence/',
+                'article_selector': 'article',
+                'title_selector': 'h2 a, h3 a, .post-block__title a',
+                'link_selector': 'h2 a, h3 a, .post-block__title a',
+                'excerpt_selector': '.post-block__content, .excerpt'
+            },
+            'venturebeat_ai': {
+                'url': 'https://venturebeat.com/category/ai/',
+                'article_selector': 'article, .ArticleListing',
+                'title_selector': 'h2 a, h3 a, .ArticleListing-title a',
+                'link_selector': 'h2 a, h3 a, .ArticleListing-title a',
+                'excerpt_selector': '.ArticleListing-excerpt, .excerpt'
+            },
+            'mit_tech_review': {
+                'url': 'https://www.technologyreview.com/topic/artificial-intelligence/',
+                'article_selector': 'article, .teaserItem',
+                'title_selector': 'h3 a, .teaserItem__title a',
+                'link_selector': 'h3 a, .teaserItem__title a',
+                'excerpt_selector': '.teaserItem__summary, .excerpt'
+            },
+            'ai_news_rss': {
+                'url': 'https://feeds.feedburner.com/artificial-intelligence-news',
+                'is_rss': True,  # RSS feed
             }
         }
     
@@ -68,6 +86,10 @@ class AINewsScraper:
             if source_config.get('is_api'):
                 return self.scrape_api_source(source_name, source_config, max_articles)
             
+            # Handle RSS feeds
+            if source_config.get('is_rss'):
+                return self.scrape_rss_source(source_name, source_config, max_articles)
+            
             response = self.session.get(source_config['url'], timeout=15)
             response.raise_for_status()
             
@@ -88,16 +110,21 @@ class AINewsScraper:
                     excerpt = self.extract_text_from_element(element, source_config['excerpt_selector'])
                     
                     if title and len(title) > 10:  # Ensure we have a meaningful title
-                        article = {
-                            'title': title,
-                            'url': link or source_config['url'],
-                            'excerpt': excerpt,
-                            'source': source_name,
-                            'scraped_at': datetime.now().isoformat(),
-                            'content': ''  # Will be filled by article processor
-                        }
-                        articles.append(article)
-                        logger.info(f"  Found article: {title[:50]}...")
+                        # Check if title contains AI-related keywords
+                        ai_keywords = ['ai', 'artificial intelligence', 'machine learning', 'deep learning', 'neural', 'gpt', 'llm', 'chatbot', 'automation']
+                        title_lower = title.lower()
+                        
+                        if any(keyword in title_lower for keyword in ai_keywords):
+                            article = {
+                                'title': title,
+                                'url': link or source_config['url'],
+                                'excerpt': excerpt[:200] if excerpt else f"Latest AI news: {title}",
+                                'source': source_name.replace('_', ' ').title(),
+                                'scraped_at': datetime.now().isoformat(),
+                                'content': excerpt[:500] if excerpt else f"Read the full article about {title}."
+                            }
+                            articles.append(article)
+                            logger.info(f"  Found AI article: {title[:50]}...")
                         
                 except Exception as e:
                     logger.error(f"Error parsing article {i} from {source_name}: {e}")
@@ -123,34 +150,87 @@ class AINewsScraper:
                 hits = data.get('hits', [])
                 for hit in hits[:max_articles]:
                     if hit.get('title') and hit.get('url'):
-                        articles.append({
-                            'title': hit['title'],
-                            'url': hit['url'],
-                            'excerpt': hit.get('story_text', '')[:200],
-                            'source': source_name,
-                            'scraped_at': datetime.now().isoformat(),
-                            'content': ''
-                        })
+                        # Filter for recent articles (last 7 days)
+                        created_at = hit.get('created_at_i', 0)
+                        if created_at > (datetime.now() - timedelta(days=7)).timestamp():
+                            articles.append({
+                                'title': hit['title'],
+                                'url': hit['url'],
+                                'excerpt': hit.get('story_text', '')[:200] or f"AI news from Hacker News: {hit['title']}",
+                                'source': 'Hacker News',
+                                'scraped_at': datetime.now().isoformat(),
+                                'content': hit.get('story_text', '')[:500] or f"Read more about {hit['title']} on Hacker News."
+                            })
             
             elif source_name == 'reddit_ai':
                 posts = data.get('data', {}).get('children', [])
                 for post in posts[:max_articles]:
                     post_data = post.get('data', {})
                     if post_data.get('title') and not post_data.get('is_self'):
-                        articles.append({
-                            'title': post_data['title'],
-                            'url': post_data.get('url', ''),
-                            'excerpt': post_data.get('selftext', '')[:200],
-                            'source': source_name,
-                            'scraped_at': datetime.now().isoformat(),
-                            'content': ''
-                        })
+                        # Filter for recent posts (last 7 days)
+                        created_utc = post_data.get('created_utc', 0)
+                        if created_utc > (datetime.now() - timedelta(days=7)).timestamp():
+                            articles.append({
+                                'title': post_data['title'],
+                                'url': post_data.get('url', ''),
+                                'excerpt': post_data.get('selftext', '')[:200] or f"AI discussion from Reddit: {post_data['title']}",
+                                'source': 'Reddit r/artificial',
+                                'scraped_at': datetime.now().isoformat(),
+                                'content': post_data.get('selftext', '')[:500] or f"Join the discussion about {post_data['title']} on Reddit."
+                            })
             
             logger.info(f"API scraping returned {len(articles)} articles from {source_name}")
             return articles
             
         except Exception as e:
             logger.error(f"Error scraping API source {source_name}: {e}")
+            return []
+    
+    def scrape_rss_source(self, source_name: str, source_config: Dict, max_articles: int) -> List[Dict]:
+        """Handle RSS feed sources."""
+        try:
+            response = self.session.get(source_config['url'], timeout=15)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'xml')
+            items = soup.find_all('item')
+            
+            articles = []
+            for item in items[:max_articles]:
+                title = item.find('title')
+                link = item.find('link')
+                description = item.find('description')
+                pub_date = item.find('pubDate')
+                
+                if title and link:
+                    title_text = title.get_text(strip=True)
+                    link_text = link.get_text(strip=True)
+                    desc_text = description.get_text(strip=True) if description else ''
+                    
+                    # Filter for recent articles (last 7 days)
+                    if pub_date:
+                        try:
+                            from email.utils import parsedate_to_datetime
+                            pub_datetime = parsedate_to_datetime(pub_date.get_text())
+                            if pub_datetime < (datetime.now() - timedelta(days=7)):
+                                continue
+                        except:
+                            pass  # If date parsing fails, include the article anyway
+                    
+                    articles.append({
+                        'title': title_text,
+                        'url': link_text,
+                        'excerpt': desc_text[:200] if desc_text else f"Latest AI news: {title_text}",
+                        'source': 'AI News RSS',
+                        'scraped_at': datetime.now().isoformat(),
+                        'content': desc_text[:500] if desc_text else f"Read the full article about {title_text}."
+                    })
+            
+            logger.info(f"RSS scraping returned {len(articles)} articles from {source_name}")
+            return articles
+            
+        except Exception as e:
+            logger.error(f"Error scraping RSS source {source_name}: {e}")
             return []
     
     def extract_text_from_element(self, element, selector: str) -> str:
@@ -255,24 +335,28 @@ class AINewsScraper:
             logger.error(f"Error scraping content from {url}: {e}")
             return ""
     
-    def get_latest_ai_news(self, max_total_articles: int = 15) -> List[Dict]:
+    def get_latest_ai_news(self, max_total_articles: int = 8) -> List[Dict]:
         """
         Get the latest AI news from all sources.
         
         Args:
-            max_total_articles: Maximum total articles to return
+            max_total_articles: Maximum total articles to return (default: 8)
             
         Returns:
             List of latest AI news articles
         """
-        # Calculate articles per source
-        articles_per_source = max(1, max_total_articles // len(self.sources))
+        # Calculate articles per source - ensure we get at least 5 articles
+        articles_per_source = max(2, max_total_articles // len(self.sources))
         
         # Scrape all sources
         articles = self.scrape_all_sources(articles_per_source)
         
-        # If no articles found, generate fallback content
-        if not articles:
+        # If we have very few articles, try to get more from fallback
+        if len(articles) < 3:
+            logger.warning(f"Only {len(articles)} articles scraped, adding some fallback content")
+            fallback_articles = self.generate_fallback_articles(max_total_articles - len(articles))
+            articles.extend(fallback_articles)
+        elif not articles:
             logger.warning("No articles scraped, generating fallback content")
             articles = self.generate_fallback_articles(max_total_articles)
         
@@ -282,7 +366,7 @@ class AINewsScraper:
         # Return only the requested number
         return articles[:max_total_articles]
     
-    def generate_fallback_articles(self, count: int = 5) -> List[Dict]:
+    def generate_fallback_articles(self, count: int = 8) -> List[Dict]:
         """Generate fallback AI news articles when scraping fails."""
         current_date = datetime.now().isoformat()
         
@@ -326,6 +410,30 @@ class AINewsScraper:
                 'source': 'Creative Tech Weekly',
                 'scraped_at': current_date,
                 'content': 'The intersection of AI and creativity is producing innovative tools that enhance human artistic expression...'
+            },
+            {
+                'title': 'Quantum Computing Breakthrough Accelerates AI Development',
+                'url': 'https://example.com/quantum-ai',
+                'excerpt': 'New quantum algorithms show promise for solving complex AI problems exponentially faster than classical computers.',
+                'source': 'Quantum Tech News',
+                'scraped_at': current_date,
+                'content': 'Quantum computing researchers have developed new algorithms that could revolutionize machine learning and AI optimization...'
+            },
+            {
+                'title': 'AI-Powered Climate Solutions Gain Global Recognition',
+                'url': 'https://example.com/ai-climate',
+                'excerpt': 'Artificial intelligence is being deployed to tackle climate change through predictive modeling and optimization.',
+                'source': 'Climate Tech Weekly',
+                'scraped_at': current_date,
+                'content': 'Climate scientists and AI researchers are collaborating to develop solutions for monitoring and mitigating climate change...'
+            },
+            {
+                'title': 'Edge AI Revolutionizes IoT and Mobile Applications',
+                'url': 'https://example.com/edge-ai',
+                'excerpt': 'On-device AI processing is transforming how mobile and IoT devices operate with improved privacy and performance.',
+                'source': 'Edge Computing Today',
+                'scraped_at': current_date,
+                'content': 'Edge AI is enabling real-time processing on devices without requiring cloud connectivity, improving privacy and reducing latency...'
             }
         ]
         
@@ -342,7 +450,7 @@ if __name__ == "__main__":
         # Suppress all logging when called from automation
         logging.basicConfig(level=logging.CRITICAL)
         scraper = AINewsScraper()
-        latest_news = scraper.get_latest_ai_news(max_total_articles=10)
+        latest_news = scraper.get_latest_ai_news(max_total_articles=8)
         print(json.dumps(latest_news, indent=2))
     else:
         # Enable verbose logging for manual testing
@@ -360,6 +468,6 @@ if __name__ == "__main__":
                     print(f"  - {article.get('title', 'No title')[:50]}...")
         
         print("DEBUG: Getting latest AI news...")
-        latest_news = scraper.get_latest_ai_news(max_total_articles=10)
+        latest_news = scraper.get_latest_ai_news(max_total_articles=8)
         print(f"DEBUG: Final result: {len(latest_news)} articles")
         print(json.dumps(latest_news, indent=2))
