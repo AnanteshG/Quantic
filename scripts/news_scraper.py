@@ -351,14 +351,12 @@ class AINewsScraper:
         # Scrape all sources
         articles = self.scrape_all_sources(articles_per_source)
         
-        # If we have very few articles, try to get more from fallback
-        if len(articles) < 3:
-            logger.warning(f"Only {len(articles)} articles scraped, adding some fallback content")
-            fallback_articles = self.generate_fallback_articles(max_total_articles - len(articles))
-            articles.extend(fallback_articles)
-        elif not articles:
-            logger.warning("No articles scraped, generating fallback content")
-            articles = self.generate_fallback_articles(max_total_articles)
+        # Only return real scraped articles - never send fallback content
+        if not articles:
+            logger.warning("No articles scraped from any source")
+            return []
+        
+        logger.info(f"Successfully scraped {len(articles)} real articles")
         
         # Sort by scraped time (most recent first)
         articles.sort(key=lambda x: x['scraped_at'], reverse=True)

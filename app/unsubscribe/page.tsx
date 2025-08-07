@@ -90,9 +90,11 @@ function UnsubscribeContent() {
             {/* Header */}
             <header className="flex items-center justify-between p-3 sm:p-4 max-w-7xl mx-auto w-full">
                 <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gray-800 rounded-lg flex items-center justify-center">
-                        <span className="text-white font-bold text-xs sm:text-sm">Q</span>
-                    </div>
+                    <img
+                        src="/logo.png"
+                        alt="QuanticDaily"
+                        className="w-6 h-6 sm:w-8 sm:h-8"
+                    />
                     <span className="text-gray-800 font-bold text-base sm:text-lg tracking-wide">QuanticDaily</span>
                 </div>
             </header>
@@ -189,9 +191,11 @@ function UnsubscribeLoading() {
             {/* Header */}
             <header className="flex items-center justify-between p-3 sm:p-4 max-w-7xl mx-auto w-full">
                 <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gray-800 rounded-lg flex items-center justify-center">
-                        <span className="text-white font-bold text-xs sm:text-sm">Q</span>
-                    </div>
+                    <img
+                        src="/logo.png"
+                        alt="QuanticDaily"
+                        className="w-6 h-6 sm:w-8 sm:h-8"
+                    />
                     <span className="text-gray-800 font-bold text-base sm:text-lg tracking-wide">QuanticDaily</span>
                 </div>
             </header>

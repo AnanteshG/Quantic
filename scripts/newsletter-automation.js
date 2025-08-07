@@ -229,6 +229,21 @@ async function main() {
     validateConfig();
 
     const newsArticles = await fetchAINews();
+
+    // Don't send newsletter if no real articles are available
+    if (!newsArticles || newsArticles.length === 0) {
+      log(
+        "No real AI news articles found. Skipping newsletter send to avoid sending empty content.",
+        "WARN"
+      );
+      log("Newsletter automation completed - no content to send.");
+      return;
+    }
+
+    log(
+      `Found ${newsArticles.length} real AI news articles. Proceeding with newsletter generation.`
+    );
+
     const newsletterContent = await generateNewsletterContent(newsArticles);
     const subscribers = await getSubscribers();
 
